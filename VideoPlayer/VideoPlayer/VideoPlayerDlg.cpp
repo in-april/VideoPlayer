@@ -26,11 +26,20 @@ CVideoPlayerDlg::CVideoPlayerDlg(CWnd* pParent /*=nullptr*/)
 void CVideoPlayerDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_EDIT_VIDEO, m_video);
+	DDX_Control(pDX, IDC_SLIDER_VOLUME, m_volume);
+	DDX_Control(pDX, IDC_SLIDER_POS, m_pos);
+	DDX_Control(pDX, IDC_EDIT_URL, m_url);
+	DDX_Control(pDX, IDC_BTN_PLAY, m_BtnPlay);
 }
 
 BEGIN_MESSAGE_MAP(CVideoPlayerDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BTN_PLAY, &CVideoPlayerDlg::OnBnClickedBtnPlay)
+	ON_BN_CLICKED(IDC_BTN_STOP, &CVideoPlayerDlg::OnBnClickedBtnStop)
+	ON_WM_TIMER()
+	ON_WM_HSCROLL()
 END_MESSAGE_MAP()
 
 
@@ -46,6 +55,20 @@ BOOL CVideoPlayerDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	m_status = false;
+	SetTimer(0, 500, NULL);
+	m_pos.SetRange(0, 100);
+	m_volume.SetRange(0, 100);
+	for (int i = 0; i < 100; i += 5)
+	{
+		m_pos.SetTic(i);
+		m_volume.SetTic(i);
+	}
+	//m_pos.SetTicFreq(10);
+	m_volume.SetTicFreq(1);
+
+	m_volume.SetPos(100);
+
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -84,5 +107,69 @@ void CVideoPlayerDlg::OnPaint()
 HCURSOR CVideoPlayerDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
+}
+
+
+
+void CVideoPlayerDlg::OnBnClickedBtnPlay()
+{
+	if (!m_status)
+	{
+		m_BtnPlay.SetWindowText(_T("暂停"));
+		m_status = true;
+	}
+	else
+	{
+		m_BtnPlay.SetWindowText(_T("播放"));
+		m_status = false;
+	}
+}
+
+
+void CVideoPlayerDlg::OnBnClickedBtnStop()
+{
+	m_BtnPlay.SetWindowText(_T("播放"));
+	m_status = false;
+	KillTimer(0);
+}
+
+
+void CVideoPlayerDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (nIDEvent == 0)
+	{
+
+	}
+	CDialogEx::OnTimer(nIDEvent);
+}
+
+
+
+void CVideoPlayerDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (nSBCode == SB_THUMBTRACK)
+	{
+		int id = pScrollBar->GetDlgCtrlID();
+		switch (id)
+		{
+		case IDC_SLIDER_POS:
+			m_pos.SetPos(nPos);
+
+			break;
+		case IDC_SLIDER_VOLUME:
+		{
+			CString str;
+			str.Format(_T("音量:%d%%"), nPos);
+			SetDlgItemText(IDC_STATIC_VOLUME, str);
+			m_volume.SetPos(nPos);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }
 
