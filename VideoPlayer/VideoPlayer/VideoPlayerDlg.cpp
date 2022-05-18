@@ -7,6 +7,7 @@
 #include "VideoPlayer.h"
 #include "VideoPlayerDlg.h"
 #include "afxdialogex.h"
+#include "VideoController.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -55,8 +56,8 @@ BOOL CVideoPlayerDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-	m_status = false;
-	SetTimer(0, 500, NULL);
+	m_status = 0;
+
 	m_pos.SetRange(0, 100);
 	m_volume.SetRange(0, 100);
 	for (int i = 0; i < 100; i += 5)
@@ -66,8 +67,9 @@ BOOL CVideoPlayerDlg::OnInitDialog()
 	}
 	//m_pos.SetTicFreq(10);
 	m_volume.SetTicFreq(1);
-
 	m_volume.SetPos(100);
+
+	pVideoController->SetHwnd(m_video.GetSafeHwnd());
 
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -113,15 +115,28 @@ HCURSOR CVideoPlayerDlg::OnQueryDragIcon()
 
 void CVideoPlayerDlg::OnBnClickedBtnPlay()
 {
-	if (!m_status)
+	if (m_status == 0)
+	{
+		CString input;
+		m_url.GetWindowText(input);
+		std::string mediaPath = pVideoController->UnicodeToUTF8(input.GetBuffer());
+		SetTimer(0, 500, NULL);
+		pVideoController->SetMedia(mediaPath);
+		pVideoController->VideoCtrl(Ctrl::PLAY);
+		m_BtnPlay.SetWindowText(_T("暂停"));
+		m_status = 2;
+	}
+	else if (m_status == 1)
 	{
 		m_BtnPlay.SetWindowText(_T("暂停"));
-		m_status = true;
+		m_status = 2;
+		pVideoController->VideoCtrl(Ctrl::PLAY);
 	}
-	else
+	else if(m_status == 2)
 	{
 		m_BtnPlay.SetWindowText(_T("播放"));
-		m_status = false;
+		m_status = 1;
+		pVideoController->VideoCtrl(Ctrl::PAUSE);
 	}
 }
 
@@ -129,7 +144,9 @@ void CVideoPlayerDlg::OnBnClickedBtnPlay()
 void CVideoPlayerDlg::OnBnClickedBtnStop()
 {
 	m_BtnPlay.SetWindowText(_T("播放"));
-	m_status = false;
+	m_status = 0;
+	pVideoController->VideoCtrl(Ctrl::STOP);
+	m_pos.SetPos(0);
 	KillTimer(0);
 }
 
@@ -139,7 +156,18 @@ void CVideoPlayerDlg::OnTimer(UINT_PTR nIDEvent)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == 0)
 	{
-
+		long long mediaLen = pVideoController->getMediaLen();
+		float pos = pVideoController->VideoCtrl(Ctrl::Get_POSITION);
+		long long cur = mediaLen * pos;
+		if (pos != -1.0f)
+		{
+			CString str;
+			str.Format(_T("%02d:%02d:%02d/%02d:%02d:%02d"),
+				int(cur / 3600000), int(cur / 60000 % 60), int(cur / 1000 % 60),
+				int(mediaLen / 3600000), int(mediaLen / 60000 % 60), int(mediaLen / 1000 % 60));
+			SetDlgItemText(IDC_STATIC_TIME, str);
+		}
+		m_pos.SetPos(pos * 100);
 	}
 	CDialogEx::OnTimer(nIDEvent);
 }
@@ -156,14 +184,14 @@ void CVideoPlayerDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		{
 		case IDC_SLIDER_POS:
 			m_pos.SetPos(nPos);
-
+			pVideoController->SetPosition((float)nPos/100);
 			break;
 		case IDC_SLIDER_VOLUME:
 		{
 			CString str;
 			str.Format(_T("音量:%d%%"), nPos);
 			SetDlgItemText(IDC_STATIC_VOLUME, str);
-			m_volume.SetPos(nPos);
+			pVideoController->SetVolume(nPos);
 			break;
 		}
 		default:
